@@ -1,0 +1,512 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, user-scalable=no">
+<title>NEON//TETRIS</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@500;700;900&family=Share+Tech+Mono&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --cyan: #00f0ff;
+    --pink: #ff2a6d;
+    --yellow: #fcee0a;
+    --violet: #b026ff;
+    --bg: #05010f;
+    --panel: rgba(14, 6, 36, .82);
+  }
+  * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+  html, body { margin: 0; min-height: 100%; }
+  body {
+    min-height: 100vh; display: flex; flex-direction: column; align-items: center; justify-content: center;
+    background:
+      radial-gradient(ellipse at 50% -10%, rgba(176, 38, 255, .35), transparent 55%),
+      radial-gradient(ellipse at 90% 100%, rgba(255, 42, 109, .22), transparent 50%),
+      radial-gradient(ellipse at 5% 90%, rgba(0, 240, 255, .18), transparent 50%),
+      var(--bg);
+    color: #cfe9ff; font-family: "Share Tech Mono", "Courier New", monospace;
+    user-select: none; overflow-x: hidden; position: relative;
+  }
+  /* lantai grid perspektif */
+  body::before {
+    content: ""; position: fixed; left: -50%; right: -50%; bottom: 0; height: 45vh;
+    background:
+      linear-gradient(transparent, rgba(255, 42, 109, .12)),
+      repeating-linear-gradient(90deg, rgba(255, 42, 109, .45) 0 1px, transparent 1px 60px),
+      repeating-linear-gradient(0deg, rgba(0, 240, 255, .35) 0 1px, transparent 1px 40px);
+    transform: perspective(300px) rotateX(60deg); transform-origin: bottom;
+    mask-image: linear-gradient(transparent, #000 70%); -webkit-mask-image: linear-gradient(transparent, #000 70%);
+    pointer-events: none; z-index: 0; animation: floor 3s linear infinite;
+  }
+  @keyframes floor { to { background-position: 0 0, 0 0, 0 40px; } }
+  /* scanline + vignette */
+  body::after {
+    content: ""; position: fixed; inset: 0; pointer-events: none; z-index: 50;
+    background:
+      repeating-linear-gradient(0deg, rgba(0,0,0,.28) 0 1px, transparent 1px 3px),
+      radial-gradient(ellipse at center, transparent 55%, rgba(0,0,0,.65));
+    mix-blend-mode: multiply;
+  }
+
+  header { position: relative; z-index: 2; text-align: center; padding: 10px 10px 0; }
+  .logo {
+    font-family: "Orbitron", sans-serif; font-weight: 900; font-size: clamp(26px, 5vw, 44px);
+    letter-spacing: 6px; margin: 0; color: #fff; position: relative; display: inline-block;
+    text-shadow: 0 0 8px var(--cyan), 0 0 24px var(--cyan), 0 0 50px var(--violet);
+  }
+  .logo::before, .logo::after {
+    content: attr(data-t); position: absolute; left: 0; top: 0; width: 100%; overflow: hidden;
+  }
+  .logo::before { color: var(--pink); text-shadow: none; transform: translate(2px, 0); clip-path: inset(0 0 55% 0); animation: gl1 3.2s infinite steps(1); }
+  .logo::after  { color: var(--cyan); text-shadow: none; transform: translate(-2px, 0); clip-path: inset(55% 0 0 0); animation: gl2 2.6s infinite steps(1); }
+  @keyframes gl1 { 0%,92%,100% { transform: translate(0); } 93% { transform: translate(-4px, 1px); } 96% { transform: translate(4px, -1px); } }
+  @keyframes gl2 { 0%,88%,100% { transform: translate(0); } 90% { transform: translate(4px, 1px); } 94% { transform: translate(-3px, 0); } }
+  .tag { font-size: 11px; letter-spacing: 5px; color: var(--pink); text-shadow: 0 0 8px var(--pink); margin-top: 2px; }
+
+  .wrap { position: relative; z-index: 2; display: flex; gap: 18px; padding: 12px; align-items: flex-start; flex-wrap: wrap; justify-content: center; }
+  .side { display: flex; flex-direction: column; gap: 12px; width: 150px; }
+
+  .panel {
+    position: relative; background: var(--panel); padding: 10px 12px;
+    border: 1px solid rgba(0, 240, 255, .55);
+    clip-path: polygon(0 0, calc(100% - 12px) 0, 100% 12px, 100% 100%, 12px 100%, 0 calc(100% - 12px));
+    box-shadow: inset 0 0 18px rgba(0, 240, 255, .12);
+  }
+  .panel::before {
+    content: ""; position: absolute; top: 0; left: 0; width: 28px; height: 2px; background: var(--pink); box-shadow: 0 0 8px var(--pink);
+  }
+  .panel h3 {
+    margin: 0 0 6px; font-family: "Orbitron", sans-serif; font-size: 10px; letter-spacing: 3px; font-weight: 500;
+    color: var(--cyan); text-shadow: 0 0 6px var(--cyan);
+  }
+  .panel .val {
+    font-family: "Orbitron", sans-serif; font-size: 22px; font-weight: 700; color: #fff;
+    text-shadow: 0 0 10px var(--pink); font-variant-numeric: tabular-nums;
+  }
+  .panel .best { color: var(--yellow); text-shadow: 0 0 10px var(--yellow); }
+  .panel canvas { display: block; margin: 0 auto; }
+
+  .help { font-size: 11px; line-height: 1.85; color: #9fb4d9; }
+  .help b { color: var(--yellow); border: 1px solid rgba(252, 238, 10, .5); padding: 0 5px; margin-right: 2px; font-weight: 400; text-shadow: 0 0 6px var(--yellow); }
+
+  .col { display: flex; flex-direction: column; align-items: center; }
+  .board-box {
+    position: relative; padding: 4px; border: 2px solid var(--cyan);
+    box-shadow: 0 0 14px var(--cyan), 0 0 40px rgba(176, 38, 255, .55), inset 0 0 20px rgba(0, 240, 255, .35);
+    background: rgba(3, 0, 12, .85);
+  }
+  .board-box::before, .board-box::after {
+    content: ""; position: absolute; width: 22px; height: 22px; border: 3px solid var(--pink); filter: drop-shadow(0 0 6px var(--pink));
+  }
+  .board-box::before { top: -8px; left: -8px; border-right: 0; border-bottom: 0; }
+  .board-box::after  { bottom: -8px; right: -8px; border-left: 0; border-top: 0; }
+  #board { display: block; }
+  .board-box.shake { animation: shake .28s; }
+  .board-box.flash { animation: flash .35s; }
+  @keyframes shake { 20% { transform: translate(-4px, 2px); } 40% { transform: translate(4px, -2px); } 60% { transform: translate(-3px, 1px); } 80% { transform: translate(3px, -1px); } }
+  @keyframes flash { 0% { box-shadow: 0 0 40px #fff, 0 0 90px var(--pink), inset 0 0 50px rgba(255,255,255,.6); } }
+
+  .overlay {
+    position: absolute; inset: 0; display: none; flex-direction: column; align-items: center; justify-content: center;
+    background: rgba(4, 0, 14, .86); text-align: center; gap: 10px; padding: 10px; z-index: 5;
+  }
+  .overlay.show { display: flex; }
+  .overlay h1 {
+    margin: 0; font-family: "Orbitron", sans-serif; font-weight: 900; font-size: 32px; letter-spacing: 4px; color: #fff;
+    text-shadow: 0 0 10px var(--pink), 0 0 30px var(--pink);
+  }
+  .overlay.over h1 { color: var(--pink); animation: blink 1s infinite steps(2); }
+  @keyframes blink { 50% { opacity: .55; } }
+  .overlay p { margin: 0; color: #b9c9ee; font-size: 13px; }
+  button {
+    font-family: "Orbitron", sans-serif; font-weight: 700; letter-spacing: 3px; font-size: 13px;
+    background: transparent; color: var(--cyan); border: 2px solid var(--cyan); padding: 11px 26px; margin-top: 6px; cursor: pointer;
+    text-shadow: 0 0 8px var(--cyan); box-shadow: 0 0 12px rgba(0, 240, 255, .5), inset 0 0 12px rgba(0, 240, 255, .25);
+    clip-path: polygon(0 0, calc(100% - 10px) 0, 100% 10px, 100% 100%, 10px 100%, 0 calc(100% - 10px));
+    transition: background .15s, color .15s;
+  }
+  button:hover { background: var(--cyan); color: #05010f; text-shadow: none; }
+  button:active { transform: scale(.96); }
+
+  .touch { display: none; grid-template-columns: repeat(4, 1fr); gap: 8px; width: 100%; margin-top: 12px; }
+  .touch button { margin: 0; padding: 14px 0; font-size: 18px; letter-spacing: 0; border-color: var(--pink); color: var(--pink); text-shadow: 0 0 8px var(--pink); box-shadow: 0 0 10px rgba(255,42,109,.4), inset 0 0 10px rgba(255,42,109,.2); }
+  @media (max-width: 560px), (pointer: coarse) { .touch { display: grid; } .help { display: none; } }
+</style>
+</head>
+<body>
+<header>
+  <h1 class="logo" data-t="NEON//TETRIS">NEON//TETRIS</h1>
+  <div class="tag">// NIGHT CITY EDITION //</div>
+</header>
+
+<div class="wrap">
+  <div class="side">
+    <div class="panel"><h3>HOLD</h3><canvas id="hold" width="120" height="84"></canvas></div>
+    <div class="panel"><h3>SKOR</h3><div class="val" id="score">0</div></div>
+    <div class="panel"><h3>LEVEL</h3><div class="val" id="level">1</div></div>
+    <div class="panel"><h3>BARIS</h3><div class="val" id="lines">0</div></div>
+    <div class="panel"><h3>HI-SCORE</h3><div class="val best" id="best">0</div></div>
+  </div>
+
+  <div class="col">
+    <div class="board-box" id="boardBox">
+      <canvas id="board" width="300" height="600"></canvas>
+      <div class="overlay show" id="overlay">
+        <h1 id="ovTitle">NEON//TETRIS</h1>
+        <p id="ovText">Jack in. Tekan Enter untuk mulai.</p>
+        <button id="startBtn">MAIN</button>
+      </div>
+    </div>
+    <div class="touch">
+      <button data-a="left">◀</button>
+      <button data-a="rotate">⟳</button>
+      <button data-a="right">▶</button>
+      <button data-a="hold">H</button>
+      <button data-a="down">▼</button>
+      <button data-a="drop">⤓</button>
+      <button data-a="pause">⏸</button>
+      <button data-a="restart">↺</button>
+    </div>
+  </div>
+
+  <div class="side">
+    <div class="panel"><h3>NEXT</h3><canvas id="next" width="120" height="252"></canvas></div>
+    <div class="panel help">
+      <b>A</b><b>D</b> geser<br>
+      <b>S</b> soft drop<br>
+      <b>W</b><b>E</b> putar<br>
+      <b>Q</b> putar balik<br>
+      <b>SPACE</b> hard drop<br>
+      <b>C</b> hold<br>
+      <b>P</b> pause<br>
+      <b>ENTER</b> restart
+    </div>
+  </div>
+</div>
+
+<script>
+(() => {
+  const COLS = 10, ROWS = 20, SZ = 30;
+  const $ = id => document.getElementById(id);
+  const ctx = $('board').getContext('2d');
+  const hctx = $('hold').getContext('2d');
+  const nctx = $('next').getContext('2d');
+  const box = $('boardBox');
+
+  const SHAPES = {
+    I: [[0,0,0,0],[1,1,1,1],[0,0,0,0],[0,0,0,0]],
+    O: [[1,1],[1,1]],
+    T: [[0,1,0],[1,1,1],[0,0,0]],
+    S: [[0,1,1],[1,1,0],[0,0,0]],
+    Z: [[1,1,0],[0,1,1],[0,0,0]],
+    J: [[1,0,0],[1,1,1],[0,0,0]],
+    L: [[0,0,1],[1,1,1],[0,0,0]],
+  };
+  const COLORS = { I:'#00f0ff', O:'#fcee0a', T:'#d300ff', S:'#05ffa1', Z:'#ff2a6d', J:'#3a6bff', L:'#ff8a00' };
+  const LINE_SCORE = [0, 100, 300, 500, 800];
+
+  let board, cur, hold, canHold, queue, bag;
+  let score, lines, level, state; // idle | playing | paused | over
+  let dropCounter, lastTime, best = 0;
+  let particles = [];
+
+  try { best = +localStorage.getItem('neon_tetris_best') || 0; } catch (e) {}
+  $('best').textContent = best;
+
+  function newBag() {
+    const a = Object.keys(SHAPES);
+    for (let i = a.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      [a[i], a[j]] = [a[j], a[i]];
+    }
+    return a;
+  }
+  function nextType() { if (!bag.length) bag = newBag(); return bag.pop(); }
+  function spawn(type) {
+    const m = SHAPES[type].map(r => r.slice());
+    cur = { t: type, m, x: Math.floor((COLS - m[0].length) / 2), y: type === 'I' ? -1 : 0 };
+    canHold = true;
+    if (collide(cur.m, cur.x, cur.y)) gameOver();
+  }
+  function pull() { const t = queue.shift(); queue.push(nextType()); spawn(t); }
+
+  function collide(m, x, y) {
+    for (let r = 0; r < m.length; r++)
+      for (let c = 0; c < m[r].length; c++) {
+        if (!m[r][c]) continue;
+        const nx = x + c, ny = y + r;
+        if (nx < 0 || nx >= COLS || ny >= ROWS) return true;
+        if (ny >= 0 && board[ny][nx]) return true;
+      }
+    return false;
+  }
+  const rotCW = m => m[0].map((_, i) => m.map(r => r[i]).reverse());
+  const rotCCW = m => m[0].map((_, i) => m.map(r => r[r.length - 1 - i]));
+
+  function rotate(dir) {
+    if (cur.t === 'O') return;
+    const m = dir > 0 ? rotCW(cur.m) : rotCCW(cur.m);
+    for (const k of [0, -1, 1, -2, 2]) {
+      if (!collide(m, cur.x + k, cur.y)) { cur.m = m; cur.x += k; return; }
+    }
+    if (!collide(m, cur.x, cur.y - 1)) { cur.m = m; cur.y -= 1; }
+  }
+  function move(dx) { if (!collide(cur.m, cur.x + dx, cur.y)) cur.x += dx; }
+  function softDrop() {
+    if (!collide(cur.m, cur.x, cur.y + 1)) { cur.y++; score += 1; updateUI(); return true; }
+    lock(); return false;
+  }
+  function ghostY() { let y = cur.y; while (!collide(cur.m, cur.x, y + 1)) y++; return y; }
+  function hardDrop() {
+    const gy = ghostY();
+    score += (gy - cur.y) * 2;
+    cur.y = gy;
+    lock(true);
+  }
+
+  function burst(row, colorList) {
+    for (let c = 0; c < COLS; c++) {
+      for (let i = 0; i < 4; i++) {
+        particles.push({
+          x: c * SZ + SZ / 2, y: row * SZ + SZ / 2,
+          vx: (Math.random() - .5) * 6, vy: (Math.random() - .8) * 5,
+          life: 1, color: colorList[c] || '#fff'
+        });
+      }
+    }
+  }
+  function fx(cls) {
+    box.classList.remove(cls); void box.offsetWidth; box.classList.add(cls);
+  }
+
+  function lock(hard) {
+    cur.m.forEach((row, r) => row.forEach((v, c) => {
+      if (v && cur.y + r >= 0) board[cur.y + r][cur.x + c] = cur.t;
+    }));
+    let cleared = 0;
+    for (let r = ROWS - 1; r >= 0; r--) {
+      if (board[r].every(Boolean)) {
+        burst(r, board[r].map(t => COLORS[t]));
+        board.splice(r, 1);
+        board.unshift(Array(COLS).fill(0));
+        cleared++; r++;
+      }
+    }
+    if (cleared) {
+      score += LINE_SCORE[cleared] * level;
+      lines += cleared;
+      level = Math.floor(lines / 10) + 1;
+      fx(cleared >= 4 ? 'flash' : 'shake');
+      if (cleared >= 4) fx('flash');
+    } else if (hard) {
+      fx('shake');
+    }
+    updateUI();
+    pull();
+    dropCounter = 0;
+  }
+  function doHold() {
+    if (!canHold) return;
+    const t = cur.t;
+    if (hold) { const h = hold; hold = t; spawn(h); }
+    else { hold = t; pull(); }
+    canHold = false;
+    dropCounter = 0;
+  }
+  function speed() { return Math.max(80, 1000 - (level - 1) * 85); }
+
+  // ---------- gambar ----------
+  function drawBlock(c, x, y, color, size, alpha = 1, glow = 14) {
+    c.save();
+    c.globalAlpha = alpha;
+    c.shadowColor = color;
+    c.shadowBlur = glow;
+    c.fillStyle = color;
+    c.globalAlpha = alpha * .28;
+    c.fillRect(x + 1, y + 1, size - 2, size - 2);
+    c.globalAlpha = alpha;
+    c.lineWidth = 2;
+    c.strokeStyle = color;
+    c.strokeRect(x + 2, y + 2, size - 4, size - 4);
+    c.shadowBlur = 0;
+    c.fillStyle = '#fff';
+    c.globalAlpha = alpha * .85;
+    c.fillRect(x + size * .3, y + size * .3, size * .4, size * .4);
+    c.restore();
+  }
+  function drawGhost(c, x, y, color, size) {
+    c.save();
+    c.strokeStyle = color; c.globalAlpha = .45; c.lineWidth = 1.5;
+    c.setLineDash([4, 3]);
+    c.strokeRect(x + 3, y + 3, size - 6, size - 6);
+    c.restore();
+  }
+  function drawPreview(c, type, ox, oy, size, w, h) {
+    const m = SHAPES[type];
+    let minR = 9, maxR = -1, minC = 9, maxC = -1;
+    m.forEach((row, r) => row.forEach((v, cc) => {
+      if (v) { minR = Math.min(minR, r); maxR = Math.max(maxR, r); minC = Math.min(minC, cc); maxC = Math.max(maxC, cc); }
+    }));
+    const pw = (maxC - minC + 1) * size, ph = (maxR - minR + 1) * size;
+    const sx = ox + (w - pw) / 2, sy = oy + (h - ph) / 2;
+    m.forEach((row, r) => row.forEach((v, cc) => {
+      if (v) drawBlock(c, sx + (cc - minC) * size, sy + (r - minR) * size, COLORS[type], size, 1, 10);
+    }));
+  }
+
+  let tick = 0;
+  function draw() {
+    tick++;
+    ctx.clearRect(0, 0, 300, 600);
+
+    // grid
+    ctx.lineWidth = 1;
+    ctx.strokeStyle = 'rgba(0, 240, 255, .09)';
+    for (let i = 1; i < COLS; i++) { ctx.beginPath(); ctx.moveTo(i * SZ + .5, 0); ctx.lineTo(i * SZ + .5, 600); ctx.stroke(); }
+    for (let i = 1; i < ROWS; i++) { ctx.beginPath(); ctx.moveTo(0, i * SZ + .5); ctx.lineTo(300, i * SZ + .5); ctx.stroke(); }
+
+    // blok terkunci
+    board.forEach((row, r) => row.forEach((v, c) => { if (v) drawBlock(ctx, c * SZ, r * SZ, COLORS[v], SZ, .95, 10); }));
+
+    if (cur && state !== 'over') {
+      const gy = ghostY();
+      cur.m.forEach((row, r) => row.forEach((v, c) => {
+        if (v && gy + r >= 0) drawGhost(ctx, (cur.x + c) * SZ, (gy + r) * SZ, COLORS[cur.t], SZ);
+      }));
+      cur.m.forEach((row, r) => row.forEach((v, c) => {
+        if (v && cur.y + r >= 0) drawBlock(ctx, (cur.x + c) * SZ, (cur.y + r) * SZ, COLORS[cur.t], SZ, 1, 18);
+      }));
+    }
+
+    // partikel
+    particles = particles.filter(p => p.life > 0);
+    particles.forEach(p => {
+      p.x += p.vx; p.y += p.vy; p.vy += .22; p.life -= .035;
+      ctx.save();
+      ctx.globalAlpha = Math.max(p.life, 0);
+      ctx.fillStyle = p.color; ctx.shadowColor = p.color; ctx.shadowBlur = 10;
+      ctx.fillRect(p.x, p.y, 4, 4);
+      ctx.restore();
+    });
+
+    // scan beam halus
+    const by = (tick * 2) % 700 - 50;
+    const g = ctx.createLinearGradient(0, by - 30, 0, by);
+    g.addColorStop(0, 'rgba(0,240,255,0)'); g.addColorStop(1, 'rgba(0,240,255,.06)');
+    ctx.fillStyle = g; ctx.fillRect(0, by - 30, 300, 30);
+
+    hctx.clearRect(0, 0, 120, 84);
+    if (hold) drawPreview(hctx, hold, 0, 0, 22, 120, 84);
+    nctx.clearRect(0, 0, 120, 252);
+    queue.slice(0, 3).forEach((t, i) => drawPreview(nctx, t, 0, i * 84, 22, 120, 84));
+  }
+
+  function updateUI() {
+    $('score').textContent = score;
+    $('level').textContent = level;
+    $('lines').textContent = lines;
+    $('best').textContent = Math.max(best, score);
+  }
+
+  function showOverlay(title, text, btn, over) {
+    $('ovTitle').textContent = title;
+    $('ovText').textContent = text;
+    $('startBtn').textContent = btn;
+    $('overlay').classList.toggle('over', !!over);
+    $('overlay').classList.add('show');
+  }
+  function hideOverlay() { $('overlay').classList.remove('show'); }
+
+  function gameOver() {
+    state = 'over';
+    if (score > best) { best = score; try { localStorage.setItem('neon_tetris_best', best); } catch (e) {} }
+    updateUI();
+    showOverlay('FLATLINED', `Skor ${score} // Hi-score ${best}`, 'REBOOT', true);
+  }
+
+  function reset() {
+    board = Array.from({ length: ROWS }, () => Array(COLS).fill(0));
+    bag = []; queue = []; hold = null; particles = [];
+    for (let i = 0; i < 4; i++) queue.push(nextType());
+    score = 0; lines = 0; level = 1;
+    dropCounter = 0; lastTime = performance.now();
+    updateUI();
+    state = 'playing';
+    pull();
+    hideOverlay();
+  }
+
+  function togglePause() {
+    if (state === 'playing') { state = 'paused'; showOverlay('PAUSED', 'Tekan P untuk lanjut', 'LANJUT'); }
+    else if (state === 'paused') { state = 'playing'; lastTime = performance.now(); hideOverlay(); }
+  }
+
+  function act(a) {
+    if (a === 'restart') return reset();
+    if (a === 'pause') return togglePause();
+    if (state !== 'playing') return;
+    switch (a) {
+      case 'left': move(-1); break;
+      case 'right': move(1); break;
+      case 'down': softDrop(); dropCounter = 0; break;
+      case 'rotate': rotate(1); break;
+      case 'rotateCCW': rotate(-1); break;
+      case 'drop': hardDrop(); break;
+      case 'hold': doHold(); break;
+    }
+  }
+
+  document.addEventListener('keydown', e => {
+    const map = {
+      a: 'left', A: 'left', d: 'right', D: 'right', s: 'down', S: 'down',
+      w: 'rotate', W: 'rotate', e: 'rotate', E: 'rotate', q: 'rotateCCW', Q: 'rotateCCW',
+      ArrowLeft: 'left', ArrowRight: 'right', ArrowDown: 'down', ArrowUp: 'rotate',
+      ' ': 'drop', c: 'hold', C: 'hold', Shift: 'hold', p: 'pause', P: 'pause',
+    };
+    if (e.key === 'Enter') { e.preventDefault(); reset(); return; }
+    const a = map[e.key];
+    if (a) { e.preventDefault(); act(a); }
+  });
+
+  $('startBtn').addEventListener('click', () => { if (state === 'paused') togglePause(); else reset(); });
+
+  document.querySelectorAll('.touch button').forEach(b => {
+    let timer = null;
+    const a = b.dataset.a;
+    const start = e => {
+      e.preventDefault();
+      act(a);
+      if (a === 'left' || a === 'right' || a === 'down') timer = setInterval(() => act(a), 110);
+    };
+    const stop = () => { clearInterval(timer); timer = null; };
+    b.addEventListener('touchstart', start, { passive: false });
+    b.addEventListener('touchend', stop);
+    b.addEventListener('touchcancel', stop);
+    b.addEventListener('mousedown', start);
+    b.addEventListener('mouseup', stop);
+    b.addEventListener('mouseleave', stop);
+  });
+
+  function loop(t) {
+    if (state === 'playing') {
+      dropCounter += t - lastTime;
+      if (dropCounter > speed()) {
+        dropCounter = 0;
+        if (!collide(cur.m, cur.x, cur.y + 1)) cur.y++; else lock();
+      }
+    }
+    lastTime = t;
+    draw();
+    requestAnimationFrame(loop);
+  }
+
+  // init
+  board = Array.from({ length: ROWS }, () => Array(COLS).fill(0));
+  bag = []; queue = []; hold = null; cur = null;
+  for (let i = 0; i < 4; i++) queue.push(nextType());
+  score = 0; lines = 0; level = 1; state = 'idle'; lastTime = performance.now(); dropCounter = 0;
+  requestAnimationFrame(loop);
+})();
+</script>
+</body>
+</html>
