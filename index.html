@@ -172,10 +172,10 @@
   <div class="side">
     <div class="panel"><h3>NEXT</h3><canvas id="next" width="120" height="252"></canvas></div>
     <div class="panel help">
-      <b>←</b><b>→</b> geser<br>
-      <b>↓</b> soft drop<br>
-      <b>↑</b><b>X</b> putar<br>
-      <b>Z</b> putar balik<br>
+      <b>A</b><b>D</b> geser<br>
+      <b>S</b> soft drop<br>
+      <b>W</b><b>E</b> putar<br>
+      <b>Q</b> putar balik<br>
       <b>SPACE</b> hard drop<br>
       <b>C</b> hold<br>
       <b>P</b> pause<br>
@@ -458,8 +458,9 @@
 
   document.addEventListener('keydown', e => {
     const map = {
+      a: 'left', A: 'left', d: 'right', D: 'right', s: 'down', S: 'down',
+      w: 'rotate', W: 'rotate', e: 'rotate', E: 'rotate', q: 'rotateCCW', Q: 'rotateCCW',
       ArrowLeft: 'left', ArrowRight: 'right', ArrowDown: 'down', ArrowUp: 'rotate',
-      x: 'rotate', X: 'rotate', z: 'rotateCCW', Z: 'rotateCCW',
       ' ': 'drop', c: 'hold', C: 'hold', Shift: 'hold', p: 'pause', P: 'pause',
     };
     if (e.key === 'Enter') { e.preventDefault(); reset(); return; }
